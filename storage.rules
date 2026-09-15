@@ -1,0 +1,52 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token != null && request.auth.token.email == 'ilearnovate1@gmail.com') ||
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'
+      );
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'TEACHER'
+      );
+    }
+
+    // School public branding (logos, crests)
+    match /school/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+    }
+
+    // Student profile photos (Admin write, authenticated read)
+    match /students/{studentId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+    }
+
+    // Assignment attachments & lesson notes (Teachers/Admins upload, Authenticated read)
+    match /assignments/{assignmentId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isTeacher() && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    // Student homework submissions (Students/Parents/Teachers, max 15MB)
+    match /submissions/{submissionId}/{allPaths=**} {
+      allow read: if isTeacher() || isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.size < 15 * 1024 * 1024;
+    }
+
+    // Deny all other storage paths by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

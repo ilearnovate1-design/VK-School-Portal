@@ -1,0 +1,246 @@
+{
+  "entities": {
+    "User": {
+      "collection": "users",
+      "fields": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "TEACHER", "PARENT"] },
+        "displayName": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Student": {
+      "collection": "students",
+      "fields": {
+        "studentId": { "type": "string" },
+        "admissionNumber": { "type": "string" },
+        "firstName": { "type": "string" },
+        "middleName": { "type": "string", "optional": true },
+        "lastName": { "type": "string" },
+        "gender": { "type": "string" },
+        "dateOfBirth": { "type": "string", "optional": true },
+        "classId": { "type": "string" },
+        "admissionDate": { "type": "string" },
+        "photoUrl": { "type": "string", "optional": true },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE", "GRADUATED", "TRANSFERRED"] },
+        "parentIds": { "type": "array" },
+        "address": { "type": "string", "optional": true },
+        "emergencyContactName": { "type": "string", "optional": true },
+        "emergencyContactPhone": { "type": "string", "optional": true },
+        "notes": { "type": "string", "optional": true },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Parent": {
+      "collection": "parents",
+      "fields": {
+        "parentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string", "optional": true },
+        "relationship": { "type": "string", "optional": true },
+        "occupation": { "type": "string", "optional": true },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Teacher": {
+      "collection": "teachers",
+      "fields": {
+        "teacherId": { "type": "string" },
+        "userId": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "employeeId": { "type": "string", "optional": true },
+        "assignedClassIds": { "type": "array" },
+        "subjects": { "type": "array" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Class": {
+      "collection": "classes",
+      "fields": {
+        "classId": { "type": "string" },
+        "name": { "type": "string" },
+        "level": { "type": "string", "optional": true },
+        "section": { "type": "string", "optional": true },
+        "classTeacherId": { "type": "string", "optional": true },
+        "academicSession": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Subject": {
+      "collection": "subjects",
+      "fields": {
+        "subjectId": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string", "optional": true },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Attendance": {
+      "collection": "attendance",
+      "fields": {
+        "attendanceId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "classId": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["PRESENT", "ABSENT", "LATE"] },
+        "timeIn": { "type": "timestamp", "optional": true },
+        "timeOut": { "type": "timestamp", "optional": true },
+        "markedBy": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "FeeStructure": {
+      "collection": "feeStructures",
+      "fields": {
+        "feeStructureId": { "type": "string" },
+        "classId": { "type": "string" },
+        "academicSession": { "type": "string" },
+        "term": { "type": "string" },
+        "feeType": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string", "optional": true },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Payment": {
+      "collection": "payments",
+      "fields": {
+        "paymentId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "amount": { "type": "number" },
+        "paymentDate": { "type": "string" },
+        "term": { "type": "string" },
+        "academicSession": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["CASH", "BANK_TRANSFER", "POS", "OTHER"] },
+        "reference": { "type": "string", "optional": true },
+        "notes": { "type": "string", "optional": true },
+        "recordedBy": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+    "Result": {
+      "collection": "results",
+      "fields": {
+        "resultId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "classId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "academicSession": { "type": "string" },
+        "term": { "type": "string" },
+        "caScore": { "type": "number" },
+        "examScore": { "type": "number" },
+        "totalScore": { "type": "number" },
+        "grade": { "type": "string" },
+        "remark": { "type": "string", "optional": true },
+        "teacherComment": { "type": "string", "optional": true },
+        "status": { "type": "string", "enum": ["DRAFT", "PUBLISHED"] },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Assignment": {
+      "collection": "assignments",
+      "fields": {
+        "assignmentId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "classId": { "type": "string" },
+        "subjectId": { "type": "string", "optional": true },
+        "teacherId": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "attachmentUrl": { "type": "string", "optional": true },
+        "status": { "type": "string", "enum": ["DRAFT", "PUBLISHED", "CLOSED"] },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Submission": {
+      "collection": "submissions",
+      "fields": {
+        "submissionId": { "type": "string" },
+        "assignmentId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "answerText": { "type": "string", "optional": true },
+        "fileUrl": { "type": "string", "optional": true },
+        "submittedAt": { "type": "timestamp", "optional": true },
+        "status": { "type": "string", "enum": ["NOT_SUBMITTED", "SUBMITTED", "GRADED"] },
+        "teacherComment": { "type": "string", "optional": true },
+        "score": { "type": "number", "optional": true },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "Announcement": {
+      "collection": "announcements",
+      "fields": {
+        "announcementId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "audience": { "type": "string", "enum": ["ALL", "TEACHERS", "PARENTS"] },
+        "publishedAt": { "type": "timestamp", "optional": true },
+        "expiresAt": { "type": "timestamp", "optional": true },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+    "Notification": {
+      "collection": "notifications",
+      "fields": {
+        "notificationId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+    "SchoolSettings": {
+      "collection": "schoolSettings",
+      "fields": {
+        "schoolName": { "type": "string" },
+        "address": { "type": "string", "optional": true },
+        "phone": { "type": "string", "optional": true },
+        "email": { "type": "string", "optional": true },
+        "logoUrl": { "type": "string", "optional": true },
+        "currentAcademicSession": { "type": "string" },
+        "currentTerm": { "type": "string" },
+        "gradingScale": { "type": "object" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "AuditLog": {
+      "collection": "auditLogs",
+      "fields": {
+        "auditId": { "type": "string" },
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    }
+  }
+}

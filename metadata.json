@@ -1,0 +1,6 @@
+{
+  "name": "School Management System",
+  "description": "A simple, mobile-first school management application for Nigerian schools managing students, attendance, school fees, results, assignments, and announcements.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

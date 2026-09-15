@@ -1,0 +1,222 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Core Authentication & Role Validation Helpers
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdminEmail() {
+      return request.auth.token != null && (
+        request.auth.token.email == 'ilearnovate1@gmail.com'
+      );
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        isSuperAdminEmail() ||
+        (userExists() && getUserData().role == 'ADMIN')
+      );
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        (userExists() && getUserData().role == 'TEACHER')
+      );
+    }
+
+    function isParent() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        (userExists() && getUserData().role == 'PARENT')
+      );
+    }
+
+    // Teacher-to-Class data isolation helper
+    function isTeacherAssignedToClass(classId) {
+      return isAdmin() || (
+        isTeacher() &&
+        userExists() &&
+        (('assignedClassIds' in getUserData() && classId in getUserData().assignedClassIds) ||
+         ('classId' in getUserData() && getUserData().classId == classId))
+      );
+    }
+
+    // Parent-to-Child data isolation helpers
+    function isParentOfStudentData(studentData) {
+      return isParent() && (
+        isAdmin() ||
+        (userExists() && 'parentId' in getUserData() && studentData.parentIds != null && getUserData().parentId in studentData.parentIds) ||
+        (request.auth.token.email != null && 'parentEmails' in studentData && studentData.parentEmails != null && request.auth.token.email in studentData.parentEmails) ||
+        (request.auth.token.email != null && 'emergencyContactEmail' in studentData && studentData.emergencyContactEmail == request.auth.token.email)
+      );
+    }
+
+    function isParentOfStudentId(studentId) {
+      return isAdmin() || (
+        isParent() &&
+        exists(/databases/$(database)/documents/students/$(studentId)) &&
+        isParentOfStudentData(get(/databases/$(database)/documents/students/$(studentId)).data)
+      );
+    }
+
+    // 1. School Profile & Settings (Public read for logo/branding on login, Admin write)
+    match /schoolSettings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 2. User Accounts & Identity Protection
+    match /users/{userId} {
+      // Users can only read their own record; Admins can read all users
+      allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == userId);
+      // Prevent privilege elevation: only designated super admin can create ADMIN role
+      allow create: if isAuthenticated() && (
+        isAdmin() || (request.auth.uid == userId && (
+          (request.resource.data.role == 'ADMIN' && isSuperAdminEmail()) ||
+          (request.resource.data.role in ['PARENT', 'TEACHER', 'GUEST']) ||
+          !('role' in request.resource.data)
+        ))
+      );
+      // Users cannot elevate their own role
+      allow update: if isAuthenticated() && (
+        isAdmin() || (request.auth.uid == userId && (
+          !('role' in request.resource.data) || request.resource.data.role == resource.data.role
+        ))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 3. Students Directory (Admin/Teacher or Verified Parent of Student)
+    match /students/{studentId} {
+      allow read: if isAdmin() || isTeacher() || isParentOfStudentData(resource.data);
+      allow write: if isAdmin();
+    }
+
+    // 4. Parents Directory (Admin/Teacher or Self-Record)
+    match /parents/{parentId} {
+      allow read: if isAdmin() || isTeacher() || (
+        isParent() && (
+          resource.data.userId == request.auth.uid ||
+          resource.data.email == request.auth.token.email ||
+          (userExists() && 'parentId' in getUserData() && resource.id == getUserData().parentId)
+        )
+      );
+      allow write: if isAdmin();
+    }
+
+    // 5. Teachers Directory (Faculty roster viewable by authenticated users, Admin write)
+    match /teachers/{teacherId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // 6. Classes & Grade Arms
+    match /classes/{classId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // 7. Academic Subjects
+    match /subjects/{subjectId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // 8. Daily Pupil Attendance
+    match /attendance/{attendanceId} {
+      // Parents can only view attendance for their own child
+      allow read: if isAdmin() || isTeacher() || isParentOfStudentId(resource.data.studentId);
+      // Teachers can only record/modify attendance for their assigned classes
+      allow write: if isAdmin() || (
+        isTeacher() &&
+        'classId' in request.resource.data &&
+        isTeacherAssignedToClass(request.resource.data.classId)
+      );
+    }
+
+    // 9. Fee Structures & Tariffs (Bursary Schedule)
+    match /feeStructures/{feeStructureId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && request.resource.data.amount is number && request.resource.data.amount > 0;
+    }
+
+    // 10. Student Fee Payments & Receipts
+    match /payments/{paymentId} {
+      // Parents can only read payments for their own child; Teachers cannot modify or read general fees
+      allow read: if isAdmin() || (isParent() && isParentOfStudentId(resource.data.studentId));
+      allow write: if isAdmin() && request.resource.data.amount is number && request.resource.data.amount > 0;
+    }
+
+    // 11. Terminal Examination & CA Results
+    match /results/{resultId} {
+      // Parents can only read published results for their own child
+      allow read: if isAdmin() || isTeacher() || (
+        isParent() &&
+        resource.data.status == 'PUBLISHED' &&
+        isParentOfStudentId(resource.data.studentId)
+      );
+      // Teachers can only modify scores for their assigned classes with valid score bounds
+      allow write: if isAdmin() || (
+        isTeacher() &&
+        'classId' in request.resource.data &&
+        isTeacherAssignedToClass(request.resource.data.classId) &&
+        request.resource.data.caScore >= 0 &&
+        request.resource.data.examScore >= 0 &&
+        request.resource.data.totalScore <= 100
+      );
+    }
+
+    // 12. Homework & Assignments
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (
+        isTeacher() && (
+          ('classId' in request.resource.data && isTeacherAssignedToClass(request.resource.data.classId)) ||
+          request.resource.data.teacherId == request.auth.uid
+        )
+      );
+    }
+
+    // 13. Student Assignment Submissions
+    match /submissions/{submissionId} {
+      allow read: if isAdmin() || isTeacher() || isParentOfStudentId(resource.data.studentId);
+      allow create: if isAuthenticated() && (
+        isAdmin() || isTeacher() || isParentOfStudentId(request.resource.data.studentId)
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || isTeacher() || isParentOfStudentId(resource.data.studentId)
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 14. Bulletins & Announcements
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // 15. In-App Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAuthenticated();
+    }
+
+    // 16. Security Audit Logs (Immutable)
+    match /auditLogs/{auditId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Immutable audit trails
+    }
+  }
+}

@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #official-receipt-print-area, #official-receipt-print-area * {
+    visibility: visible;
+  }
+  
+  #official-receipt-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    border: none;
+    box-shadow: none;
+  }
+  
+  /* Also support report cards */
+  #official-report-card-print, #official-report-card-print * {
+    visibility: visible;
+  }
+  
+  #official-report-card-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    border: none;
+    box-shadow: none;
+  }
+}
