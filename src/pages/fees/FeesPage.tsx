@@ -12,6 +12,8 @@ import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
 import { PaymentStatusBadge } from '../../components/common/Badge';
 import { ReceiptModal } from '../../components/fees/ReceiptModal';
+import { FeeStatementModal } from '../../components/fees/FeeStatementModal';
+import { printDocumentElement } from '../../utils/documentGenerator';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSchool } from '../../contexts/SchoolContext';
 import { 
@@ -49,6 +51,9 @@ export const FeesPage: React.FC = () => {
   // Receipt Modal
   const [viewingReceipt, setViewingReceipt] = useState<Payment | null>(null);
   const [receiptStudent, setReceiptStudent] = useState<Student | null>(null);
+
+  // Statement Modal
+  const [statementStudent, setStatementStudent] = useState<Student | null>(null);
 
   // Add Fee Structure Modal
   const [showStructureModal, setShowStructureModal] = useState(false);
@@ -547,8 +552,8 @@ export const FeesPage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <PaymentStatusBadge status={status} />
-                      <Button size="sm" variant="outline" onClick={() => window.print()} leftIcon={<Printer className="w-4 h-4" />}>
-                        Print Statement
+                      <Button size="sm" variant="outline" onClick={() => setStatementStudent(student)} leftIcon={<Printer className="w-4 h-4" />}>
+                        Print / Download Statement
                       </Button>
                     </div>
                   </div>
@@ -616,7 +621,7 @@ export const FeesPage: React.FC = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => window.print()}
+                onClick={() => printDocumentElement('official-debtors-print-area', `Fee Defaulters Directory - ${settings.currentTerm}`)}
                 leftIcon={<Printer className="w-4 h-4" />}
               >
                 Print Debtors List
@@ -641,7 +646,7 @@ export const FeesPage: React.FC = () => {
               </select>
             </div>
 
-            <div className="overflow-x-auto">
+            <div id="official-debtors-print-area" className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-xs">
                   <tr>
@@ -878,11 +883,22 @@ export const FeesPage: React.FC = () => {
         payment={viewingReceipt}
         student={receiptStudent}
         schoolClass={receiptStudent ? classesMap.get(receiptStudent.classId) : null}
+        totalTariff={receiptStudent ? getStudentExpectedFee(receiptStudent) : undefined}
         balanceRemaining={
           receiptStudent
             ? Math.max(0, getStudentExpectedFee(receiptStudent) - getStudentTotalPaid(receiptStudent.studentId))
             : 0
         }
+      />
+
+      {/* OFFICIAL STATEMENT OF ACCOUNT MODAL */}
+      <FeeStatementModal
+        isOpen={!!statementStudent}
+        onClose={() => setStatementStudent(null)}
+        student={statementStudent}
+        schoolClass={statementStudent ? classesMap.get(statementStudent.classId) : null}
+        payments={statementStudent ? payments.filter((p) => p.studentId === statementStudent.studentId) : []}
+        expectedFee={statementStudent ? getStudentExpectedFee(statementStudent) : 0}
       />
     </div>
   );

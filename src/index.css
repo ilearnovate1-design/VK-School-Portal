@@ -1,38 +1,47 @@
 @import "tailwindcss";
 
 @media print {
+  body {
+    background-color: #ffffff !important;
+  }
+
   body * {
     visibility: hidden;
   }
   
-  #official-receipt-print-area, #official-receipt-print-area * {
+  /* Make all official printable document areas visible */
+  #official-receipt-print-area, #official-receipt-print-area *,
+  #official-report-card-print, #official-report-card-print *,
+  #official-student-profile-print, #official-student-profile-print *,
+  #official-statement-print-area, #official-statement-print-area *,
+  #official-debtors-print-area, #official-debtors-print-area * {
     visibility: visible;
   }
   
-  #official-receipt-print-area {
+  #official-receipt-print-area,
+  #official-report-card-print,
+  #official-student-profile-print,
+  #official-statement-print-area,
+  #official-debtors-print-area {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     margin: 0;
-    padding: 20px;
-    border: none;
-    box-shadow: none;
+    padding: 12px;
+    border: none !important;
+    box-shadow: none !important;
   }
-  
-  /* Also support report cards */
-  #official-report-card-print, #official-report-card-print * {
-    visibility: visible;
+
+  /* Force background colors and exact border rendering */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  
-  #official-report-card-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 20px;
-    border: none;
-    box-shadow: none;
+
+  /* Hide modal buttons and non-printable elements during print */
+  .no-print, button, .modal-close-btn {
+    display: none !important;
   }
 }
+

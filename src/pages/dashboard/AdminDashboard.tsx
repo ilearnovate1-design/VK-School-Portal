@@ -44,100 +44,117 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setLoading(true);
       try {
         const today = getTodayDateString();
+        const studentsMap = new Map<string, Student>();
 
         // 1. Fetch Students
-        const studentsSnap = await getDocs(query(collection(db, 'students'), where('status', '==', 'ACTIVE')));
-        const studentsMap = new Map<string, Student>();
-        studentsSnap.forEach((doc) => {
-          const s = doc.data() as Student;
-          studentsMap.set(s.studentId, s);
-        });
-        setTotalStudents(studentsMap.size);
+        try {
+          const studentsSnap = await getDocs(query(collection(db, 'students'), where('status', '==', 'ACTIVE')));
+          studentsSnap.forEach((doc) => {
+            const s = doc.data() as Student;
+            studentsMap.set(s.studentId, s);
+          });
+          setTotalStudents(studentsMap.size);
+        } catch (sErr) {
+          console.warn('Dashboard students load warning:', sErr);
+        }
 
         // 2. Fetch Today's Attendance
-        const attSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today)));
-        let present = 0;
-        let absent = 0;
-        let late = 0;
-        const attList: { record: AttendanceRecord; studentName: string }[] = [];
+        try {
+          const attSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today)));
+          let present = 0;
+          let absent = 0;
+          let late = 0;
+          const attList: { record: AttendanceRecord; studentName: string }[] = [];
 
-        attSnap.forEach((doc) => {
-          const a = doc.data() as AttendanceRecord;
-          if (a.status === 'PRESENT') present++;
-          else if (a.status === 'ABSENT') absent++;
-          else if (a.status === 'LATE') late++;
+          attSnap.forEach((doc) => {
+            const a = doc.data() as AttendanceRecord;
+            if (a.status === 'PRESENT') present++;
+            else if (a.status === 'ABSENT') absent++;
+            else if (a.status === 'LATE') late++;
 
-          const student = studentsMap.get(a.studentId);
-          attList.push({
-            record: a,
-            studentName: student ? `${student.firstName} ${student.lastName}` : a.studentId,
+            const student = studentsMap.get(a.studentId);
+            attList.push({
+              record: a,
+              studentName: student ? `${student.firstName} ${student.lastName}` : a.studentId,
+            });
           });
-        });
 
-        setPresentToday(present);
-        setAbsentToday(absent);
-        setLateToday(late);
-        setTodayAttendanceList(attList.slice(0, 5));
+          setPresentToday(present);
+          setAbsentToday(absent);
+          setLateToday(late);
+          setTodayAttendanceList(attList.slice(0, 5));
+        } catch (attErr) {
+          console.warn('Dashboard attendance load warning:', attErr);
+        }
 
         // 3. Calculate Fees Outstanding
-        // Sum feeStructures amount for active classes * number of students in that class - total payments for current session/term
-        const feeStructSnap = await getDocs(query(
-          collection(db, 'feeStructures'), 
-          where('academicSession', '==', settings.currentAcademicSession),
-          where('term', '==', settings.currentTerm)
-        ));
-        
-        let expectedTotal = 0;
-        feeStructSnap.forEach((fDoc) => {
-          const fee = fDoc.data();
-          // count students in this class
-          let classCount = 0;
-          studentsMap.forEach((s) => {
-            if (s.classId === fee.classId) classCount++;
+        try {
+          const feeStructSnap = await getDocs(query(
+            collection(db, 'feeStructures'), 
+            where('academicSession', '==', settings.currentAcademicSession),
+            where('term', '==', settings.currentTerm)
+          ));
+          
+          let expectedTotal = 0;
+          feeStructSnap.forEach((fDoc) => {
+            const fee = fDoc.data();
+            let classCount = 0;
+            studentsMap.forEach((s) => {
+              if (s.classId === fee.classId) classCount++;
+            });
+            expectedTotal += (fee.amount || 0) * classCount;
           });
-          expectedTotal += (fee.amount || 0) * classCount;
-        });
 
-        const paySnap = await getDocs(query(
-          collection(db, 'payments'),
-          where('academicSession', '==', settings.currentAcademicSession),
-          where('term', '==', settings.currentTerm)
-        ));
+          const paySnap = await getDocs(query(
+            collection(db, 'payments'),
+            where('academicSession', '==', settings.currentAcademicSession),
+            where('term', '==', settings.currentTerm)
+          ));
 
-        let paidTotal = 0;
-        const payList: { payment: Payment; studentName: string }[] = [];
-        paySnap.forEach((pDoc) => {
-          const p = pDoc.data() as Payment;
-          paidTotal += p.amount || 0;
-          const s = studentsMap.get(p.studentId);
-          payList.push({
-            payment: p,
-            studentName: s ? `${s.firstName} ${s.lastName}` : p.studentId,
+          let paidTotal = 0;
+          const payList: { payment: Payment; studentName: string }[] = [];
+          paySnap.forEach((pDoc) => {
+            const p = pDoc.data() as Payment;
+            paidTotal += p.amount || 0;
+            const s = studentsMap.get(p.studentId);
+            payList.push({
+              payment: p,
+              studentName: s ? `${s.firstName} ${s.lastName}` : p.studentId,
+            });
           });
-        });
 
-        const balance = Math.max(0, expectedTotal - paidTotal);
-        setFeesOutstanding(balance);
+          const balance = Math.max(0, expectedTotal - paidTotal);
+          setFeesOutstanding(balance);
 
-        // Sort payments by date desc
-        payList.sort((a, b) => (b.payment.paymentDate > a.payment.paymentDate ? 1 : -1));
-        setRecentPayments(payList.slice(0, 5));
+          payList.sort((a, b) => (b.payment.paymentDate > a.payment.paymentDate ? 1 : -1));
+          setRecentPayments(payList.slice(0, 5));
+        } catch (fErr) {
+          console.warn('Dashboard fees load warning:', fErr);
+        }
 
         // 4. Assignments
-        const assignSnap = await getDocs(query(
-          collection(db, 'assignments'),
-          where('status', '==', 'PUBLISHED'),
-          limit(5)
-        ));
-        const aList: Assignment[] = [];
-        assignSnap.forEach((doc) => aList.push(doc.data() as Assignment));
-        setUpcomingAssignments(aList);
+        try {
+          const assignSnap = await getDocs(query(
+            collection(db, 'assignments'),
+            where('status', '==', 'PUBLISHED'),
+            limit(5)
+          ));
+          const aList: Assignment[] = [];
+          assignSnap.forEach((doc) => aList.push(doc.data() as Assignment));
+          setUpcomingAssignments(aList);
+        } catch (aErr) {
+          console.warn('Dashboard assignments load warning:', aErr);
+        }
 
         // 5. Announcements
-        const annSnap = await getDocs(query(collection(db, 'announcements'), limit(4)));
-        const annList: Announcement[] = [];
-        annSnap.forEach((doc) => annList.push(doc.data() as Announcement));
-        setRecentAnnouncements(annList);
+        try {
+          const annSnap = await getDocs(query(collection(db, 'announcements'), limit(4)));
+          const annList: Announcement[] = [];
+          annSnap.forEach((doc) => annList.push(doc.data() as Announcement));
+          setRecentAnnouncements(annList);
+        } catch (annErr) {
+          console.warn('Dashboard announcements load warning:', annErr);
+        }
 
       } catch (err) {
         console.error('Error loading admin dashboard:', err);

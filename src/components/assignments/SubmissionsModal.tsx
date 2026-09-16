@@ -5,6 +5,7 @@ import { Assignment, Submission, Student } from '../../types';
 import { doc, getDocs, collection, query, where, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { formatDate } from '../../utils/formatters';
+import { Paperclip } from 'lucide-react';
 
 interface SubmissionsModalProps {
   isOpen: boolean;
@@ -169,14 +170,30 @@ export const SubmissionsModal: React.FC<SubmissionsModalProps> = ({
                           <td colSpan={4} className="p-4">
                             <div className="space-y-4 max-w-xl mx-auto">
                               {/* View Submission */}
-                              {sub?.answerText ? (
+                              {(sub?.answerText || sub?.fileUrl) ? (
                                 <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
                                   <span className="block text-[10px] uppercase font-bold text-slate-500 mb-1">
                                     Pupil's Submission ({sub.submittedAt ? formatDate(sub.submittedAt) : 'Recent'})
                                   </span>
-                                  <p className="text-xs text-slate-800 whitespace-pre-wrap">
-                                    {sub.answerText}
-                                  </p>
+                                  {sub.answerText && (
+                                    <p className="text-xs text-slate-800 whitespace-pre-wrap">
+                                      {sub.answerText}
+                                    </p>
+                                  )}
+                                  {sub.fileUrl && (
+                                    <div className="mt-2">
+                                      <a 
+                                        href={sub.fileUrl}
+                                        download={sub.fileName || 'submission-attachment'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors text-[10px] font-semibold"
+                                      >
+                                        <Paperclip className="w-3.5 h-3.5" />
+                                        <span className="truncate max-w-[200px]">{sub.fileName || 'View Attachment'}</span>
+                                      </a>
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="bg-white p-3 rounded-lg border border-slate-200 text-center text-xs text-slate-500 italic">

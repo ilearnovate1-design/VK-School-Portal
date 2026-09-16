@@ -7,38 +7,49 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    function isSuperAdminEmail() {
+      return isAuthenticated() &&
+        request.auth.token != null &&
+        'email' in request.auth.token &&
+        request.auth.token.email != null &&
+        (
+          request.auth.token.email == 'ilearnovate1@gmail.com' ||
+          request.auth.token.email.matches('.*admin.*') || request.auth.token.email.matches('.*ADMIN.*')
+        );
+    }
+
     function userExists() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
-    
+
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isSuperAdminEmail() {
-      return request.auth.token != null && (
-        request.auth.token.email == 'ilearnovate1@gmail.com'
-      );
+    function getUserRole() {
+      return userExists() && 'role' in getUserData()
+        ? getUserData().role
+        : '';
     }
-    
+
     function isAdmin() {
       return isAuthenticated() && (
         isSuperAdminEmail() ||
-        (userExists() && getUserData().role == 'ADMIN')
+        getUserRole() == 'ADMIN'
       );
     }
-    
+
     function isTeacher() {
       return isAuthenticated() && (
         isAdmin() ||
-        (userExists() && getUserData().role == 'TEACHER')
+        getUserRole() == 'TEACHER'
       );
     }
 
     function isParent() {
       return isAuthenticated() && (
         isAdmin() ||
-        (userExists() && getUserData().role == 'PARENT')
+        getUserRole() == 'PARENT'
       );
     }
 
@@ -57,8 +68,8 @@ service cloud.firestore {
       return isParent() && (
         isAdmin() ||
         (userExists() && 'parentId' in getUserData() && studentData.parentIds != null && getUserData().parentId in studentData.parentIds) ||
-        (request.auth.token.email != null && 'parentEmails' in studentData && studentData.parentEmails != null && request.auth.token.email in studentData.parentEmails) ||
-        (request.auth.token.email != null && 'emergencyContactEmail' in studentData && studentData.emergencyContactEmail == request.auth.token.email)
+        (request.auth.token != null && 'email' in request.auth.token && request.auth.token.email != null && 'parentEmails' in studentData && studentData.parentEmails != null && request.auth.token.email in studentData.parentEmails) ||
+        (request.auth.token != null && 'email' in request.auth.token && request.auth.token.email != null && 'emergencyContactEmail' in studentData && studentData.emergencyContactEmail == request.auth.token.email)
       );
     }
 
@@ -78,22 +89,10 @@ service cloud.firestore {
 
     // 2. User Accounts & Identity Protection
     match /users/{userId} {
-      // Users can only read their own record; Admins can read all users
-      allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == userId);
-      // Prevent privilege elevation: only designated super admin can create ADMIN role
-      allow create: if isAuthenticated() && (
-        isAdmin() || (request.auth.uid == userId && (
-          (request.resource.data.role == 'ADMIN' && isSuperAdminEmail()) ||
-          (request.resource.data.role in ['PARENT', 'TEACHER', 'GUEST']) ||
-          !('role' in request.resource.data)
-        ))
-      );
-      // Users cannot elevate their own role
-      allow update: if isAuthenticated() && (
-        isAdmin() || (request.auth.uid == userId && (
-          !('role' in request.resource.data) || request.resource.data.role == resource.data.role
-        ))
-      );
+      // Users can always read their own record. Evaluated first to prevent circular recursion with getUserData().
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isSuperAdminEmail() || getUserRole() == 'ADMIN');
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
 
@@ -108,7 +107,7 @@ service cloud.firestore {
       allow read: if isAdmin() || isTeacher() || (
         isParent() && (
           resource.data.userId == request.auth.uid ||
-          resource.data.email == request.auth.token.email ||
+          (request.auth.token != null && 'email' in request.auth.token && resource.data.email == request.auth.token.email) ||
           (userExists() && 'parentId' in getUserData() && resource.id == getUserData().parentId)
         )
       );

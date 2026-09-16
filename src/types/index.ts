@@ -163,6 +163,7 @@ export interface Assignment {
   teacherId: string;
   dueDate: string; // YYYY-MM-DD
   attachmentUrl?: string;
+  attachmentName?: string;
   status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
   createdAt: any;
   updatedAt: any;
@@ -174,6 +175,7 @@ export interface Submission {
   studentId: string;
   answerText?: string;
   fileUrl?: string;
+  fileName?: string;
   submittedAt?: any;
   status: 'NOT_SUBMITTED' | 'SUBMITTED' | 'GRADED';
   teacherComment?: string;

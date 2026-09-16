@@ -67,8 +67,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       // PARENT
       return [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'students', label: 'My Children', icon: Users },
-        { id: 'attendance', label: 'Attendance', icon: CalendarCheck2 },
         { id: 'results', label: 'Results', icon: Award },
         { id: 'fees', label: 'Fees & Receipts', icon: Receipt },
         { id: 'assignments', label: 'Assignments', icon: ClipboardList },

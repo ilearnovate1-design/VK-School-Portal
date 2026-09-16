@@ -7,11 +7,12 @@ import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { AttendanceBadge } from '../../components/common/Badge';
 import { 
-  Users, CalendarCheck2, Receipt, Award, ClipboardList, Megaphone, CheckCircle2, AlertCircle 
+  Users, CalendarCheck2, Receipt, Award, ClipboardList, Megaphone, CheckCircle2, AlertCircle, FileText 
 } from 'lucide-react';
 import { Student, SchoolClass, AttendanceRecord, Result, Payment, Assignment, Announcement, FeeStructure } from '../../types';
 import { formatNaira, formatDate, formatTime, getTodayDateString } from '../../utils/formatters';
 import { SubmitWorkModal } from '../../components/assignments/SubmitWorkModal';
+import { ReceiptModal } from '../../components/fees/ReceiptModal';
 
 interface ParentDashboardProps {
   onNavigate: (page: string, params?: any) => void;
@@ -42,6 +43,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   
   // Submit Work Modal
   const [selectedAssignmentForSubmission, setSelectedAssignmentForSubmission] = useState<Assignment | null>(null);
+  const [selectedPaymentForReceipt, setSelectedPaymentForReceipt] = useState<Payment | null>(null);
 
   // 1. Fetch Children linked to this Parent
   useEffect(() => {
@@ -57,29 +59,61 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         });
         setClassesMap(cMap);
 
-        // Fetch students: parentIds array contains currentParent.parentId
+        // Fetch students safely using both email and parentId
         let studentsList: Student[] = [];
-        if (currentParent?.parentId) {
-          const sQuery = query(
-            collection(db, 'students'),
-            where('parentIds', 'array-contains', currentParent.parentId)
-          );
-          const sSnap = await getDocs(sQuery);
-          sSnap.forEach((d) => studentsList.push(d.data() as Student));
+        const userEmail = currentUser?.email?.toLowerCase().trim();
+
+        // 1. Fetch by email (robust against race conditions because token.email is always present)
+        if (userEmail) {
+          try {
+            const sQuery = query(
+              collection(db, 'students'),
+              where('parentEmails', 'array-contains', userEmail)
+            );
+            const sSnap = await getDocs(sQuery);
+            sSnap.forEach((d) => studentsList.push(d.data() as Student));
+          } catch (e) {
+            console.warn('Failed to fetch by parentEmails:', e);
+          }
         }
 
-        // If no parent doc matched yet (e.g. parent email match fallback)
-        if (studentsList.length === 0) {
-          // Look up parent by email
-          const pSnap = await getDocs(
-            query(collection(db, 'parents'), where('email', '==', currentUser?.email?.toLowerCase().trim()))
-          );
-          if (!pSnap.empty) {
-            const pid = pSnap.docs[0].id;
-            const sSnap = await getDocs(
-              query(collection(db, 'students'), where('parentIds', 'array-contains', pid))
+        // 2. Fetch by parentId if available, and deduplicate
+        if (currentParent?.parentId) {
+          try {
+            const sQuery = query(
+              collection(db, 'students'),
+              where('parentIds', 'array-contains', currentParent.parentId)
             );
-            sSnap.forEach((d) => studentsList.push(d.data() as Student));
+            const sSnap = await getDocs(sQuery);
+            sSnap.forEach((d) => {
+              if (!studentsList.find(s => s.studentId === d.id)) {
+                studentsList.push(d.data() as Student);
+              }
+            });
+          } catch (e) {
+            console.warn('Failed to fetch by parentIds:', e);
+          }
+        }
+
+        // 3. Last fallback: Look up parent by email if currentParent was somehow delayed
+        if (studentsList.length === 0 && userEmail && !currentParent) {
+          try {
+            const pSnap = await getDocs(
+              query(collection(db, 'parents'), where('email', '==', userEmail))
+            );
+            if (!pSnap.empty) {
+              const pid = pSnap.docs[0].id;
+              const sSnap = await getDocs(
+                query(collection(db, 'students'), where('parentIds', 'array-contains', pid))
+              );
+              sSnap.forEach((d) => {
+                if (!studentsList.find(s => s.studentId === d.id)) {
+                  studentsList.push(d.data() as Student);
+                }
+              });
+            }
+          } catch (e) {
+            console.warn('Failed parent fallback query:', e);
           }
         }
 
@@ -171,12 +205,14 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         const rSnap = await getDocs(
           query(
             collection(db, 'results'),
-            where('studentId', '==', selectedChildId),
-            where('status', '==', 'PUBLISHED')
+            where('studentId', '==', selectedChildId)
           )
         );
         const rList: Result[] = [];
-        rSnap.forEach((d) => rList.push(d.data() as Result));
+        rSnap.forEach((d) => {
+          const res = d.data() as Result;
+          if (res.status === 'PUBLISHED') rList.push(res);
+        });
         setResults(rList);
 
         // E. Assignments for child's class
@@ -184,12 +220,14 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           const aSnap = await getDocs(
             query(
               collection(db, 'assignments'),
-              where('classId', '==', selectedChild.classId),
-              where('status', '==', 'PUBLISHED')
+              where('classId', '==', selectedChild.classId)
             )
           );
           const aList: Assignment[] = [];
-          aSnap.forEach((d) => aList.push(d.data() as Assignment));
+          aSnap.forEach((d) => {
+            const assign = d.data() as Assignment;
+            if (assign.status === 'PUBLISHED') aList.push(assign);
+          });
           setAssignments(aList);
         }
 
@@ -353,6 +391,19 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                     <span className="font-semibold text-emerald-700">{formatNaira(feePaid)}</span>
                   </div>
                 </div>
+                {recentPayments.length > 0 && (
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-medium">Receipts Available</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPaymentForReceipt(recentPayments[0])}
+                      className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      View & Print Receipt
+                    </button>
+                  </div>
+                )}
               </CardBody>
             </Card>
 
@@ -493,6 +544,17 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             onClose={() => setSelectedAssignmentForSubmission(null)}
             assignment={selectedAssignmentForSubmission}
             student={selectedChild || null}
+          />
+
+          <ReceiptModal
+            isOpen={!!selectedPaymentForReceipt}
+            onClose={() => setSelectedPaymentForReceipt(null)}
+            payment={selectedPaymentForReceipt}
+            student={selectedChild || null}
+            schoolClass={selectedChild ? classesMap.get(selectedChild.classId) : null}
+            parent={currentParent}
+            balanceRemaining={Math.max(0, feeExpected - feePaid)}
+            totalTariff={feeExpected}
           />
         </>
       )}

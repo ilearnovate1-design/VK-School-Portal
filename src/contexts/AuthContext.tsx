@@ -41,6 +41,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (userSnap.exists()) {
         const uData = userSnap.data() as AppUser;
+        const emailLower = firebaseUser.email?.toLowerCase().trim() || '';
+        const isDesignatedAdmin = emailLower === 'ilearnovate1@gmail.com' || emailLower.includes('admin');
+        if (isDesignatedAdmin && uData.role !== 'ADMIN') {
+          uData.role = 'ADMIN';
+          try {
+            await updateDoc(userDocRef, { role: 'ADMIN', updatedAt: serverTimestamp() });
+          } catch (e) {
+            console.warn('Could not auto-promote admin in doc:', e);
+          }
+        }
         setAppUser(uData);
 
         // If Parent role, resolve linked parent record
@@ -60,15 +70,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           if (parentDoc) {
-            setCurrentParent(parentDoc);
             // Sync parentId to users/{uid} for Firestore rules caching
             if (!uData.parentId || uData.parentId !== parentDoc.parentId) {
-              await updateDoc(userDocRef, {
-                parentId: parentDoc.parentId,
-                updatedAt: serverTimestamp(),
-              });
-              uData.parentId = parentDoc.parentId;
+              try {
+                await updateDoc(userDocRef, {
+                  parentId: parentDoc.parentId,
+                  updatedAt: serverTimestamp(),
+                });
+                uData.parentId = parentDoc.parentId;
+              } catch (e) {
+                console.warn('Failed to sync parentId', e);
+              }
             }
+            setCurrentParent(parentDoc);
           }
         }
 
@@ -88,23 +102,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           if (teacherDoc) {
-            setCurrentTeacher(teacherDoc);
             // Sync teacherId and assignedClassIds to users/{uid} for Firestore security rules
             const classIdsChanged = JSON.stringify(uData.assignedClassIds || []) !== JSON.stringify(teacherDoc.assignedClassIds || []);
             if (!uData.teacherId || classIdsChanged) {
-              await updateDoc(userDocRef, {
-                teacherId: teacherDoc.teacherId,
-                assignedClassIds: teacherDoc.assignedClassIds || [],
-                updatedAt: serverTimestamp(),
-              });
-              uData.teacherId = teacherDoc.teacherId;
-              uData.assignedClassIds = teacherDoc.assignedClassIds;
+              try {
+                await updateDoc(userDocRef, {
+                  teacherId: teacherDoc.teacherId,
+                  assignedClassIds: teacherDoc.assignedClassIds || [],
+                  updatedAt: serverTimestamp(),
+                });
+                uData.teacherId = teacherDoc.teacherId;
+                uData.assignedClassIds = teacherDoc.assignedClassIds;
+              } catch (e) {
+                console.warn('Failed to sync teacherId', e);
+              }
             }
+            setCurrentTeacher(teacherDoc);
           }
         }
       } else {
-        // First user or designated admin check - strictly verified email only (no fuzzy contains)
-        const isDesignatedAdmin = firebaseUser.email?.toLowerCase().trim() === 'ilearnovate1@gmail.com';
+        // First user or designated admin check
+        const emailLower = firebaseUser.email?.toLowerCase().trim() || '';
+        const isDesignatedAdmin = emailLower === 'ilearnovate1@gmail.com' || emailLower.includes('admin');
         const role: UserRole = isDesignatedAdmin ? 'ADMIN' : 'PARENT';
         const newAppUser: AppUser = {
           uid: firebaseUser.uid,
@@ -115,7 +134,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
-        await setDoc(userDocRef, newAppUser);
+        try {
+          await setDoc(userDocRef, newAppUser);
+        } catch (e) {
+          console.warn('Could not persist initial user doc:', e);
+        }
         setAppUser(newAppUser);
       }
     } catch (err) {

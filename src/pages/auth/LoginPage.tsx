@@ -11,7 +11,7 @@ export const LoginPage: React.FC<{ onSetupRequested?: () => void }> = ({ onSetup
   const { login, signup, resetPassword } = useAuth();
   const { settings, reloadSettings } = useSchool();
 
-  const [activeTab, setActiveTab] = useState<'LOGIN' | 'REGISTER_ADMIN'>('LOGIN');
+  const [activeTab, setActiveTab] = useState<'LOGIN' | 'REGISTER_ADMIN' | 'REGISTER_TEACHER' | 'REGISTER_PARENT'>('LOGIN');
 
   // Login form state
   const [email, setEmail] = useState('');
@@ -25,11 +25,19 @@ export const LoginPage: React.FC<{ onSetupRequested?: () => void }> = ({ onSetup
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  // Admin registration state
-  const [adminName, setAdminName] = useState('');
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminPass, setAdminPass] = useState('');
-  const [confirmAdminPass, setConfirmAdminPass] = useState('');
+  // Registration state
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPass, setRegPass] = useState('');
+  const [confirmRegPass, setConfirmRegPass] = useState('');
+
+  const resetForm = () => {
+    setErrorMessage('');
+    setRegName('');
+    setRegEmail('');
+    setRegPass('');
+    setConfirmRegPass('');
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,28 +56,36 @@ export const LoginPage: React.FC<{ onSetupRequested?: () => void }> = ({ onSetup
     }
   };
 
-  const handleRegisterAdmin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminName || !adminEmail || !adminPass) {
+    if (!regName || !regEmail || !regPass) {
       setErrorMessage('Please fill in all registration fields.');
       return;
     }
-    if (adminPass.length < 6) {
+    if (regPass.length < 6) {
       setErrorMessage('Password must be at least 6 characters long.');
       return;
     }
-    if (adminPass !== confirmAdminPass) {
+    if (regPass !== confirmRegPass) {
       setErrorMessage('Passwords do not match. Please verify.');
       return;
     }
 
     setErrorMessage('');
     setIsLoading(true);
+    
+    let role: 'ADMIN' | 'TEACHER' | 'PARENT' = 'PARENT';
+    if (activeTab === 'REGISTER_ADMIN') role = 'ADMIN';
+    else if (activeTab === 'REGISTER_TEACHER') role = 'TEACHER';
+    else if (activeTab === 'REGISTER_PARENT') role = 'PARENT';
+
     try {
-      await signup(adminEmail, adminPass, adminName, 'ADMIN');
-      await reloadSettings();
-      if (onSetupRequested) {
-        onSetupRequested();
+      await signup(regEmail, regPass, regName, role);
+      if (role === 'ADMIN') {
+        await reloadSettings();
+        if (onSetupRequested) {
+          onSetupRequested();
+        }
       }
     } catch (err: any) {
       setErrorMessage(parseFirebaseError(err));
@@ -116,7 +132,7 @@ export const LoginPage: React.FC<{ onSetupRequested?: () => void }> = ({ onSetup
               id="tab-sign-in"
               onClick={() => {
                 setActiveTab('LOGIN');
-                setErrorMessage('');
+                resetForm();
               }}
               className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'LOGIN'
@@ -128,18 +144,18 @@ export const LoginPage: React.FC<{ onSetupRequested?: () => void }> = ({ onSetup
             </button>
             <button
               type="button"
-              id="tab-register-admin"
+              id="tab-register"
               onClick={() => {
-                setActiveTab('REGISTER_ADMIN');
-                setErrorMessage('');
+                setActiveTab('REGISTER_PARENT'); // Default
+                resetForm();
               }}
               className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
-                activeTab === 'REGISTER_ADMIN'
+                activeTab !== 'LOGIN'
                   ? 'border-emerald-600 text-emerald-700'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
-              Register School Admin
+              Register
             </button>
           </div>
 
@@ -214,63 +230,96 @@ export const LoginPage: React.FC<{ onSetupRequested?: () => void }> = ({ onSetup
               </div>
             </form>
           ) : (
-            <form onSubmit={handleRegisterAdmin} className="space-y-4">
-              <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900 mb-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-                <div>
-                  <span className="font-semibold block">Primary Administrative Account</span>
-                  Use this form to register the school principal, proprietor, or head IT administrator. You will be able to manage sessions, staff, pupils, and fees.
-                </div>
+            <form onSubmit={handleRegister} className="space-y-4">
+              
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('REGISTER_PARENT')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    activeTab === 'REGISTER_PARENT' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Parent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('REGISTER_TEACHER')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    activeTab === 'REGISTER_TEACHER' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Teacher
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('REGISTER_ADMIN')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    activeTab === 'REGISTER_ADMIN' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Admin
+                </button>
               </div>
 
+              {activeTab === 'REGISTER_ADMIN' && (
+                <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900 mb-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-semibold block">Primary Administrative Account</span>
+                    Use this form to register the school principal, proprietor, or head IT administrator.
+                  </div>
+                </div>
+              )}
+
               <Input
-                id="setup-admin-name"
-                label="Administrator Full Name"
-                placeholder="e.g. Dr. A. Adebayo (Principal)"
-                value={adminName}
-                onChange={(e) => setAdminName(e.target.value)}
+                id="setup-reg-name"
+                label="Full Name"
+                placeholder={activeTab === 'REGISTER_ADMIN' ? 'e.g. Dr. A. Adebayo (Principal)' : 'e.g. John Doe'}
+                value={regName}
+                onChange={(e) => setRegName(e.target.value)}
                 required
               />
 
               <Input
-                id="setup-admin-email"
+                id="setup-reg-email"
                 type="email"
-                label="Official Email Address"
-                placeholder="principal@school.edu.ng"
-                value={adminEmail}
-                onChange={(e) => setAdminEmail(e.target.value)}
+                label="Email Address"
+                placeholder="email@example.com"
+                value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)}
                 required
               />
 
               <Input
-                id="setup-admin-pass"
+                id="setup-reg-pass"
                 type="password"
                 label="Password (min 6 characters)"
                 placeholder="••••••••"
-                value={adminPass}
-                onChange={(e) => setAdminPass(e.target.value)}
+                value={regPass}
+                onChange={(e) => setRegPass(e.target.value)}
                 required
               />
 
               <Input
-                id="setup-admin-confirm-pass"
+                id="setup-reg-confirm-pass"
                 type="password"
                 label="Confirm Password"
                 placeholder="••••••••"
-                value={confirmAdminPass}
-                onChange={(e) => setConfirmAdminPass(e.target.value)}
+                value={confirmRegPass}
+                onChange={(e) => setConfirmRegPass(e.target.value)}
                 required
               />
 
               <Button
-                id="register-admin-btn"
+                id="register-submit-btn"
                 type="submit"
                 className="w-full mt-2"
                 isLoading={isLoading}
                 size="lg"
                 leftIcon={<Lock className="w-4 h-4" />}
               >
-                Create Administrator Account
+                Create Account
               </Button>
             </form>
           )}

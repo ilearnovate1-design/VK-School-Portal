@@ -534,6 +534,8 @@ export const ResultsPage: React.FC = () => {
         student={selectedStudentForReport}
         schoolClass={selectedStudentForReport ? classes.find((c) => c.classId === selectedStudentForReport.classId) || null : null}
         results={studentAllResults}
+        subjects={subjects}
+        totalStudentsInClass={students.length}
       />
     </div>
   );

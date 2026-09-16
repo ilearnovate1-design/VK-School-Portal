@@ -37,7 +37,7 @@ let firestoreInstance;
 try {
   const settings = {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
   };
   firestoreInstance = config.firestoreDatabaseId 
     ? initializeFirestore(app, settings, config.firestoreDatabaseId)

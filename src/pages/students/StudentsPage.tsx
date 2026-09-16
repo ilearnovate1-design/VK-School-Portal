@@ -13,10 +13,11 @@ import { BulkUploadStudentsModal } from './BulkUploadStudentsModal';
 import { StudentProfileModal } from './StudentProfileModal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { 
-  Plus, Upload, Search, Filter, Eye, Edit2, Archive, UserX, Phone, GraduationCap 
+  Plus, Upload, Search, Filter, Eye, Edit2, Archive, UserX, Phone, GraduationCap, FileText 
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { logAudit } from '../../utils/formatters';
+import { StudentProfileDocumentModal } from '../../components/students/StudentProfileDocumentModal';
 
 export const StudentsPage: React.FC = () => {
   const { role, currentUser } = useAuth();
@@ -35,6 +36,7 @@ export const StudentsPage: React.FC = () => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
+  const [documentStudent, setDocumentStudent] = useState<Student | null>(null);
   const [studentToArchive, setStudentToArchive] = useState<Student | null>(null);
   const [archiveLoading, setArchiveLoading] = useState(false);
 
@@ -42,22 +44,34 @@ export const StudentsPage: React.FC = () => {
     setLoading(true);
     try {
       // 1. Classes
-      const cSnap = await getDocs(collection(db, 'classes'));
-      const cList: SchoolClass[] = [];
-      cSnap.forEach((d) => cList.push(d.data() as SchoolClass));
-      setClasses(cList);
+      try {
+        const cSnap = await getDocs(collection(db, 'classes'));
+        const cList: SchoolClass[] = [];
+        cSnap.forEach((d) => cList.push(d.data() as SchoolClass));
+        setClasses(cList);
+      } catch (cErr) {
+        console.warn('Could not load classes list:', cErr);
+      }
 
       // 2. Parents
-      const pSnap = await getDocs(collection(db, 'parents'));
-      const pList: Parent[] = [];
-      pSnap.forEach((d) => pList.push(d.data() as Parent));
-      setParents(pList);
+      try {
+        const pSnap = await getDocs(collection(db, 'parents'));
+        const pList: Parent[] = [];
+        pSnap.forEach((d) => pList.push(d.data() as Parent));
+        setParents(pList);
+      } catch (pErr) {
+        console.warn('Could not load parents list:', pErr);
+      }
 
       // 3. Students
-      const sSnap = await getDocs(collection(db, 'students'));
-      const sList: Student[] = [];
-      sSnap.forEach((d) => sList.push(d.data() as Student));
-      setStudents(sList);
+      try {
+        const sSnap = await getDocs(collection(db, 'students'));
+        const sList: Student[] = [];
+        sSnap.forEach((d) => sList.push(d.data() as Student));
+        setStudents(sList);
+      } catch (sErr) {
+        console.error('Error fetching students list:', sErr);
+      }
     } catch (err) {
       console.error('Error fetching students page data:', err);
     } finally {
@@ -276,6 +290,14 @@ export const StudentsPage: React.FC = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setDocumentStudent(student)}
+                            title="Print / Download Official Dossier"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
                           {role === 'ADMIN' && (
                             <>
                               <button
@@ -355,6 +377,15 @@ export const StudentsPage: React.FC = () => {
         confirmText="Archive Student"
         variant="danger"
         isLoading={archiveLoading}
+      />
+
+      {/* Complete Official Student Profile Dossier Modal */}
+      <StudentProfileDocumentModal
+        isOpen={!!documentStudent}
+        onClose={() => setDocumentStudent(null)}
+        student={documentStudent}
+        schoolClass={documentStudent ? classes.find((c) => c.classId === documentStudent.classId) : null}
+        parent={documentStudent?.parentId ? parents.find((p) => p.parentId === documentStudent.parentId) : null}
       />
     </div>
   );

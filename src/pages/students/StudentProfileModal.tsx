@@ -7,7 +7,8 @@ import { StudentStatusBadge, AttendanceBadge } from '../../components/common/Bad
 import { Student, Parent, SchoolClass, AttendanceRecord, Result, Payment, Assignment, FeeStructure } from '../../types';
 import { formatNaira, formatDate, formatTime } from '../../utils/formatters';
 import { useSchool } from '../../contexts/SchoolContext';
-import { Printer, User, Phone, MapPin, Calendar, Heart, ShieldAlert } from 'lucide-react';
+import { Printer, User, Phone, MapPin, Calendar, Heart, ShieldAlert, FileText, Download } from 'lucide-react';
+import { StudentProfileDocumentModal } from '../../components/students/StudentProfileDocumentModal';
 
 interface StudentProfileModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 }) => {
   const { settings } = useSchool();
   const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'results' | 'assignments' | 'fees'>('overview');
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
 
   const [parent, setParent] = useState<Parent | null>(null);
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
@@ -158,10 +160,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             <Button
               size="sm"
               variant="outline"
-              onClick={handlePrint}
-              leftIcon={<Printer className="w-4 h-4" />}
+              onClick={() => setShowDocumentModal(true)}
+              leftIcon={<FileText className="w-4 h-4 text-emerald-800" />}
             >
-              Print Profile
+              Official Dossier (Print / Download)
             </Button>
             {onEdit && (
               <Button
@@ -444,6 +446,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Official Pupil Dossier Document Modal */}
+      <StudentProfileDocumentModal
+        isOpen={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        student={student}
+        schoolClass={schoolClass}
+        parent={parent}
+        results={resultsList}
+        payments={paymentsList}
+        attendance={attendanceList}
+        expectedFee={expectedFee}
+      />
     </Modal>
   );
 };

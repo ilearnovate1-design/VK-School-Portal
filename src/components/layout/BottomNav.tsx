@@ -34,7 +34,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentPage, onNavigate })
       // PARENT
       return [
         { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
-        { id: 'attendance', label: 'Attendance', icon: CalendarCheck2 },
         { id: 'fees', label: 'Fees', icon: Receipt },
         { id: 'assignments', label: 'Assignments', icon: ClipboardList },
       ];

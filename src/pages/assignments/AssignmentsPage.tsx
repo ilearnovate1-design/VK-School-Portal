@@ -9,12 +9,13 @@ import { Input, Select } from '../../components/common/Input';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
 import { SubmissionsModal } from '../../components/assignments/SubmissionsModal';
+import { SubmitWorkModal } from '../../components/assignments/SubmitWorkModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDate, logAudit } from '../../utils/formatters';
-import { ClipboardList, Plus, Calendar, BookOpen, Clock, CheckCircle2 } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, BookOpen, Clock, CheckCircle2, Paperclip } from 'lucide-react';
 
 export const AssignmentsPage: React.FC = () => {
-  const { role, currentUser, currentTeacher } = useAuth();
+  const { role, currentUser, currentTeacher, currentParent } = useAuth();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -32,6 +33,8 @@ export const AssignmentsPage: React.FC = () => {
   const [subjectId, setSubjectId] = useState('');
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]);
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'CLOSED'>('PUBLISHED');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   
@@ -39,6 +42,32 @@ export const AssignmentsPage: React.FC = () => {
   const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
   const [assignmentForSubmissions, setAssignmentForSubmissions] = useState<Assignment | null>(null);
   const [classStudents, setClassStudents] = useState<Student[]>([]);
+
+  // Parent Submit Modal
+  const [assignmentForSubmitWork, setAssignmentForSubmitWork] = useState<Assignment | null>(null);
+  const [parentChildren, setParentChildren] = useState<Student[]>([]);
+
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // limit to 700KB to fit safely in 1MB Firestore limit
+    if (file.size > 700 * 1024) {
+      setFormError('File size must be under 700KB. Please choose a smaller file.');
+      return;
+    }
+    setFormError('');
+    setAttachmentName(file.name);
+    
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) {
+        setAttachmentUrl(ev.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   
   const handleViewSubmissions = async (assignment: Assignment) => {
     setLoading(true);
@@ -66,6 +95,34 @@ export const AssignmentsPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      let parentChildClassIds = new Set<string>();
+      let pChildren: Student[] = [];
+
+      if (role === 'PARENT') {
+        const userEmail = currentUser?.email?.toLowerCase().trim();
+        if (userEmail) {
+          try {
+            const sSnap = await getDocs(query(collection(db, 'students'), where('parentEmails', 'array-contains', userEmail)));
+            sSnap.forEach(d => {
+              const s = d.data() as Student;
+              parentChildClassIds.add(s.classId);
+              if (!pChildren.find(x => x.studentId === s.studentId)) pChildren.push(s);
+            });
+          } catch(e) {}
+        }
+        if (currentParent?.parentId) {
+          try {
+            const sSnap = await getDocs(query(collection(db, 'students'), where('parentIds', 'array-contains', currentParent.parentId)));
+            sSnap.forEach(d => {
+              const s = d.data() as Student;
+              parentChildClassIds.add(s.classId);
+              if (!pChildren.find(x => x.studentId === s.studentId)) pChildren.push(s);
+            });
+          } catch(e) {}
+        }
+        setParentChildren(pChildren);
+      }
+
       const cSnap = await getDocs(collection(db, 'classes'));
       let cList: SchoolClass[] = [];
       cSnap.forEach((d) => cList.push(d.data() as SchoolClass));
@@ -75,6 +132,8 @@ export const AssignmentsPage: React.FC = () => {
         cList = cList.filter(
           (c) => assignedIds.includes(c.classId) || c.classTeacherId === currentTeacher?.teacherId
         );
+      } else if (role === 'PARENT') {
+        cList = cList.filter((c) => parentChildClassIds.has(c.classId));
       }
 
       setClasses(cList);
@@ -96,6 +155,10 @@ export const AssignmentsPage: React.FC = () => {
         aList = aList.filter(
           (a) => assignedIds.has(a.classId) || a.teacherId === currentUser?.uid
         );
+      } else if (role === 'PARENT') {
+        aList = aList.filter(
+          (a) => parentChildClassIds.has(a.classId) && a.status === 'PUBLISHED'
+        );
       }
 
       aList.sort((a, b) => (b.dueDate > a.dueDate ? 1 : -1));
@@ -109,7 +172,7 @@ export const AssignmentsPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [role, currentTeacher]);
+  }, [role, currentTeacher, currentParent, currentUser]);
 
   const openAddModal = () => {
     setEditingAssignment(null);
@@ -117,6 +180,8 @@ export const AssignmentsPage: React.FC = () => {
     setDescription('');
     setDueDate(new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]);
     setStatus('PUBLISHED');
+    setAttachmentUrl('');
+    setAttachmentName('');
     setFormError('');
     setShowModal(true);
   };
@@ -140,6 +205,8 @@ export const AssignmentsPage: React.FC = () => {
         subjectId,
         teacherId: currentUser?.uid || 'teacher',
         dueDate,
+        attachmentUrl,
+        attachmentName,
         status,
         updatedAt: serverTimestamp(),
       };
@@ -253,6 +320,21 @@ export const AssignmentsPage: React.FC = () => {
                     <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
                       {a.description}
                     </p>
+                    
+                    {a.attachmentUrl && (
+                      <div className="mt-3">
+                        <a 
+                          href={a.attachmentUrl}
+                          download={a.attachmentName || 'assignment-attachment'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors text-xs font-semibold"
+                        >
+                          <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="truncate max-w-[200px]">{a.attachmentName || 'Download Attachment'}</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -280,6 +362,8 @@ export const AssignmentsPage: React.FC = () => {
                               setSubjectId(a.subjectId);
                               setDueDate(a.dueDate);
                               setStatus(a.status);
+                              setAttachmentUrl(a.attachmentUrl || '');
+                              setAttachmentName(a.attachmentName || '');
                               setShowModal(true);
                             }}
                             className="text-emerald-800 hover:text-emerald-950 font-semibold text-xs cursor-pointer"
@@ -287,6 +371,15 @@ export const AssignmentsPage: React.FC = () => {
                             Edit
                           </button>
                         </>
+                      )}
+                      {role === 'PARENT' && (
+                        <button
+                          type="button"
+                          onClick={() => setAssignmentForSubmitWork(a)}
+                          className="text-emerald-700 hover:text-emerald-900 font-semibold text-xs cursor-pointer px-3 py-1.5 rounded bg-emerald-50 border border-emerald-200"
+                        >
+                          Submit / View Work
+                        </button>
                       )}
                     </div>
                   </div>
@@ -377,6 +470,21 @@ export const AssignmentsPage: React.FC = () => {
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Attach Resource (Max 700KB PDF/Doc/Image)
+            </label>
+            <input
+              type="file"
+              onChange={handleFileChange}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+            />
+            {attachmentName && (
+              <p className="mt-1 text-[10px] text-emerald-700 font-medium">Attached: {attachmentName}</p>
+            )}
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
             <Button variant="outline" type="button" onClick={() => setShowModal(false)} disabled={saving}>
               Cancel
@@ -393,6 +501,17 @@ export const AssignmentsPage: React.FC = () => {
         onClose={() => setShowSubmissionsModal(false)}
         assignment={assignmentForSubmissions}
         students={classStudents}
+      />
+
+      <SubmitWorkModal
+        isOpen={!!assignmentForSubmitWork}
+        onClose={() => setAssignmentForSubmitWork(null)}
+        assignment={assignmentForSubmitWork}
+        student={
+          assignmentForSubmitWork
+            ? parentChildren.find(c => c.classId === assignmentForSubmitWork.classId) || null
+            : null
+        }
       />
     </div>
   );

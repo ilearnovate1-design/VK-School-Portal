@@ -14,7 +14,7 @@ import { useSchool } from '../../contexts/SchoolContext';
 import { logAudit } from '../../utils/formatters';
 
 export const ClassesPage: React.FC = () => {
-  const { role, currentUser } = useAuth();
+  const { role, currentUser, currentTeacher } = useAuth();
   const { settings } = useSchool();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -35,10 +35,22 @@ export const ClassesPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const cSnap = await getDocs(collection(db, 'classes'));
-      const cList: SchoolClass[] = [];
-      cSnap.forEach((d) => cList.push(d.data() as SchoolClass));
-      setClasses(cList);
+      let classesList: SchoolClass[] = [];
+
+      if (role === 'TEACHER' && currentTeacher) {
+        if (currentTeacher.assignedClassIds && currentTeacher.assignedClassIds.length > 0) {
+          // If teacher has assigned classes, query them specifically
+          const cSnap = await getDocs(
+            query(collection(db, 'classes'), where('classId', 'in', currentTeacher.assignedClassIds))
+          );
+          cSnap.forEach((d) => classesList.push(d.data() as SchoolClass));
+        }
+      } else {
+        // Admin or other roles get all classes
+        const cSnap = await getDocs(collection(db, 'classes'));
+        cSnap.forEach((d) => classesList.push(d.data() as SchoolClass));
+      }
+      setClasses(classesList);
 
       const tSnap = await getDocs(collection(db, 'teachers'));
       const tList: Teacher[] = [];
@@ -141,9 +153,11 @@ export const ClassesPage: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Class Management</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+            {role === 'ADMIN' ? 'Class Management' : 'My Assigned Classes'}
+          </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            {classes.length} active classroom grades & arms
+            {classes.length} {role === 'ADMIN' ? 'active classroom grades & arms' : 'classes assigned to you'}
           </p>
         </div>
 
