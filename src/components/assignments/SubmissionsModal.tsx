@@ -74,7 +74,14 @@ export const SubmissionsModal: React.FC<SubmissionsModalProps> = ({
         updatedAt: serverTimestamp(),
       };
       
-      await setDoc(docRef, { ...payload, createdAt: existingSub ? undefined : serverTimestamp() }, { merge: true });
+      const docData: any = {
+        ...payload,
+      };
+      if (!existingSub) {
+        docData.createdAt = serverTimestamp();
+      }
+      
+      await setDoc(docRef, docData, { merge: true });
       
       // Update local state
       const updatedMap = new Map(submissionsMap);

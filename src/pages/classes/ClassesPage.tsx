@@ -8,10 +8,11 @@ import { Button } from '../../components/common/Button';
 import { Input, Select } from '../../components/common/Input';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
-import { Plus, Edit2, Layers, Users, GraduationCap } from 'lucide-react';
+import { Plus, Edit2, Layers, Users, GraduationCap, BookOpen } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSchool } from '../../contexts/SchoolContext';
 import { logAudit } from '../../utils/formatters';
+import { SubjectsManagement } from '../../components/subjects/SubjectsManagement';
 
 export const ClassesPage: React.FC = () => {
   const { role, currentUser, currentTeacher } = useAuth();
@@ -20,6 +21,7 @@ export const ClassesPage: React.FC = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'classes' | 'subjects'>('classes');
 
   // Modal
   const [showModal, setShowModal] = useState(false);
@@ -151,80 +153,113 @@ export const ClassesPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-            {role === 'ADMIN' ? 'Class Management' : 'My Assigned Classes'}
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500">
-            {classes.length} {role === 'ADMIN' ? 'active classroom grades & arms' : 'classes assigned to you'}
-          </p>
-        </div>
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab('classes')}
+          className={`pb-3 px-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'classes'
+              ? 'border-emerald-700 text-emerald-800'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Classes & Arms ({classes.length})</span>
+        </button>
 
-        {role === 'ADMIN' && (
-          <Button
-            variant="primary"
-            onClick={openAddModal}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Create New Class
-          </Button>
-        )}
+        <button
+          onClick={() => setActiveTab('subjects')}
+          className={`pb-3 px-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'subjects'
+              ? 'border-emerald-700 text-emerald-800'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Curriculum Subjects</span>
+        </button>
       </div>
 
-      {loading ? (
-        <div className="py-12 text-center text-xs text-slate-500">Loading classes...</div>
+      {activeTab === 'subjects' ? (
+        <SubjectsManagement />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classes.map((cls) => {
-            const classStudents = students.filter((s) => s.classId === cls.classId && s.status === 'ACTIVE');
-            const teacher = cls.classTeacherId ? teachersMap.get(cls.classTeacherId) : null;
+        <>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                {role === 'ADMIN' ? 'Class Management' : 'My Assigned Classes'}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500">
+                {classes.length} {role === 'ADMIN' ? 'active classroom grades & arms' : 'classes assigned to you'}
+              </p>
+            </div>
 
-            return (
-              <Card key={cls.classId} className="hover:border-emerald-600 transition-colors">
-                <CardBody className="p-5 flex flex-col justify-between h-full">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                        {cls.level || 'Class'} {cls.section ? `• ${cls.section}` : ''}
-                      </span>
-                      <span className="text-xs text-slate-400">{cls.academicSession}</span>
-                    </div>
+            {role === 'ADMIN' && (
+              <Button
+                variant="primary"
+                onClick={openAddModal}
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                Create New Class
+              </Button>
+            )}
+          </div>
 
-                    <h3 className="text-lg font-bold text-slate-900 mt-2">
-                      {cls.name}
-                    </h3>
+          {loading ? (
+            <div className="py-12 text-center text-xs text-slate-500">Loading classes...</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {classes.map((cls) => {
+                const classStudents = students.filter((s) => s.classId === cls.classId && s.status === 'ACTIVE');
+                const teacher = cls.classTeacherId ? teachersMap.get(cls.classTeacherId) : null;
 
-                    <p className="text-xs text-slate-500 mt-1">
-                      Class Teacher:{' '}
-                      <span className="font-medium text-slate-800">
-                        {teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Unassigned'}
-                      </span>
-                    </p>
-                  </div>
+                return (
+                  <Card key={cls.classId} className="hover:border-emerald-600 transition-colors">
+                    <CardBody className="p-5 flex flex-col justify-between h-full">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                            {cls.level || 'Class'} {cls.section ? `• ${cls.section}` : ''}
+                          </span>
+                          <span className="text-xs text-slate-400">{cls.academicSession}</span>
+                        </div>
 
-                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                      <Users className="w-4 h-4 text-emerald-700" />
-                      <span className="font-semibold text-slate-900">{classStudents.length}</span> pupils enrolled
-                    </div>
+                        <h3 className="text-lg font-bold text-slate-900 mt-2">
+                          {cls.name}
+                        </h3>
 
-                    {role === 'ADMIN' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditModal(cls)}
-                        leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                  </div>
-                </CardBody>
-              </Card>
-            );
-          })}
-        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Class Teacher:{' '}
+                          <span className="font-medium text-slate-800">
+                            {teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Unassigned'}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                          <Users className="w-4 h-4 text-emerald-700" />
+                          <span className="font-semibold text-slate-900">{classStudents.length}</span> pupils enrolled
+                        </div>
+
+                        {role === 'ADMIN' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditModal(cls)}
+                            leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                      </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Add / Edit Class Modal */}

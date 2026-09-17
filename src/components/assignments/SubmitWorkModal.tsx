@@ -112,7 +112,14 @@ export const SubmitWorkModal: React.FC<SubmitWorkModalProps> = ({
         updatedAt: serverTimestamp(),
       };
       
-      await setDoc(docRef, { ...payload, createdAt: submission ? undefined : serverTimestamp() }, { merge: true });
+      const submissionData: any = {
+        ...payload,
+      };
+      if (!submission) {
+        submissionData.createdAt = serverTimestamp();
+      }
+      
+      await setDoc(docRef, submissionData, { merge: true });
       
       // Update local state
       setSubmission({
@@ -121,8 +128,9 @@ export const SubmitWorkModal: React.FC<SubmitWorkModalProps> = ({
         status: 'SUBMITTED'
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting work:', error);
+      setFormError(error?.message || 'Failed to submit homework. Please try again.');
     } finally {
       setSaving(false);
     }

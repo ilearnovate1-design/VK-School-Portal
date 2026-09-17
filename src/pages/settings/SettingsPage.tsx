@@ -14,12 +14,15 @@ import {
   Trash2, 
   AlertTriangle,
   RefreshCw,
-  HardDrive
+  HardDrive,
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { logAudit } from '../../utils/formatters';
 import { 
   getDatabaseStats, 
   purgeCollections, 
+  generateTestRecords,
   exportSchoolDataBackup,
   CollectionStat 
 } from '../../services/dataManagement';
@@ -53,6 +56,14 @@ export const SettingsPage: React.FC = () => {
   const [isPurging, setIsPurging] = useState(false);
   const [purgeSuccessMessage, setPurgeSuccessMessage] = useState('');
   const [purgeErrorMessage, setPurgeErrorMessage] = useState('');
+
+  // Regenerate Test Data Modal
+  const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenerateProgress, setRegenerateProgress] = useState('');
+  const [regenerateSuccessMessage, setRegenerateSuccessMessage] = useState('');
+  const [regenerateErrorMessage, setRegenerateErrorMessage] = useState('');
+  const [purgeFirst, setPurgeFirst] = useState(true);
 
   const loadStats = async () => {
     if (role !== 'ADMIN') return;
@@ -149,6 +160,32 @@ export const SettingsPage: React.FC = () => {
       setSelectedCollectionsToPurge(selectedCollectionsToPurge.filter(c => c !== colName));
     } else {
       setSelectedCollectionsToPurge([...selectedCollectionsToPurge, colName]);
+    }
+  };
+
+  const handleExecuteRegenerate = async () => {
+    setIsRegenerating(true);
+    setRegenerateProgress('Initializing demo records engine...');
+    setRegenerateErrorMessage('');
+    setRegenerateSuccessMessage('');
+
+    try {
+      const res = await generateTestRecords(currentUser?.uid || 'admin', {
+        purgeFirst,
+        onProgress: (msg) => setRegenerateProgress(msg),
+      });
+      setRegenerateSuccessMessage(`Successfully regenerated ${res.createdCount} realistic school records across all collections!`);
+      await loadStats();
+      setTimeout(() => {
+        setShowRegenerateModal(false);
+        setRegenerateSuccessMessage('');
+        setRegenerateProgress('');
+      }, 3000);
+    } catch (err: any) {
+      console.error('Error generating test records:', err);
+      setRegenerateErrorMessage(err.message || 'Failed to generate test records');
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -342,6 +379,31 @@ export const SettingsPage: React.FC = () => {
 
             <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="max-w-md">
+                <h4 className="text-sm font-bold text-emerald-950 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  Regenerate Test Records & Demo Data
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Populate realistic Nigerian school demo records (Classes, Curriculum Subjects, Teachers, Parents, Students, Attendance logs, Fee structures, Payment receipts, Exam scores, and Homework).
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setRegenerateErrorMessage('');
+                  setRegenerateSuccessMessage('');
+                  setRegenerateProgress('');
+                  setShowRegenerateModal(true);
+                }}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                leftIcon={<Sparkles className="w-4 h-4" />}
+              >
+                Regenerate Test Records
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="max-w-md">
                 <h4 className="text-sm font-bold text-rose-900">Launch Readiness: Clear Test Records</h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Used when preparing to launch the school. Allows purging dummy or test students, fee invoices, scores, and attendance so the school starts with a pristine database.
@@ -364,6 +426,102 @@ export const SettingsPage: React.FC = () => {
           </CardBody>
         </Card>
       )}
+
+      {/* Regenerate Test Records Modal */}
+      <Modal
+        isOpen={showRegenerateModal}
+        onClose={() => !isRegenerating && setShowRegenerateModal(false)}
+        title="Regenerate School Test Records"
+        subtitle="Seed realistic demo data for classes, curriculum, students, fees, scores, and homework"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900">
+            <p className="font-bold text-sm text-emerald-950 flex items-center gap-1.5 mb-1">
+              <Sparkles className="w-4 h-4 text-emerald-700" />
+              Complete School Demonstration Dataset
+            </p>
+            <p className="text-xs text-emerald-800 leading-relaxed">
+              This utility automatically seeds structured, authentic Nigerian school demo records across every module:
+            </p>
+            <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-emerald-900 font-medium">
+              <li className="flex items-center gap-1.5">✓ 6 Classes & Arms (Primary 1-5, JSS 1)</li>
+              <li className="flex items-center gap-1.5">✓ 10 Curriculum Subjects (Maths, English, etc.)</li>
+              <li className="flex items-center gap-1.5">✓ 3 Qualified Subject & Class Teachers</li>
+              <li className="flex items-center gap-1.5">✓ 4 Parent profiles with phone contacts</li>
+              <li className="flex items-center gap-1.5">✓ 8 Enrolled Pupils with admission IDs</li>
+              <li className="flex items-center gap-1.5">✓ 24+ Attendance logs (Present / Late / Absent)</li>
+              <li className="flex items-center gap-1.5">✓ 8 Tuition & Fee structures</li>
+              <li className="flex items-center gap-1.5">✓ 5 Verified Payment Receipts</li>
+              <li className="flex items-center gap-1.5">✓ 13 Published Terminal Exam Scores</li>
+              <li className="flex items-center gap-1.5">✓ 3 Homework & 3 Pupil Submissions</li>
+            </ul>
+          </div>
+
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={purgeFirst}
+                disabled={isRegenerating}
+                onChange={(e) => setPurgeFirst(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <div>
+                <span className="font-semibold text-slate-900 block text-xs">
+                  Clean existing test records before seeding (Recommended)
+                </span>
+                <span className="text-slate-500 text-[11px]">
+                  Wipes prior test records from manageable collections first so you get an organized, duplication-free dataset. Admin accounts and school settings are safely preserved.
+                </span>
+              </div>
+            </label>
+          </div>
+
+          {isRegenerating && (
+            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl flex items-center gap-2.5">
+              <RefreshCw className="w-4 h-4 animate-spin text-amber-700 shrink-0" />
+              <div className="text-xs font-medium">
+                {regenerateProgress || 'Processing test data generation...'}
+              </div>
+            </div>
+          )}
+
+          {regenerateErrorMessage && (
+            <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg">
+              {regenerateErrorMessage}
+            </div>
+          )}
+
+          {regenerateSuccessMessage && (
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{regenerateSuccessMessage}</span>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              type="button"
+              disabled={isRegenerating}
+              onClick={() => setShowRegenerateModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              type="button"
+              disabled={isRegenerating}
+              isLoading={isRegenerating}
+              onClick={handleExecuteRegenerate}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white"
+              leftIcon={<Sparkles className="w-4 h-4" />}
+            >
+              {isRegenerating ? 'Generating...' : 'Start Record Generation'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Purge Test Data Confirmation Modal */}
       <Modal

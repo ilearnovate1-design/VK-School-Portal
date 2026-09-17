@@ -141,103 +141,126 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         const selectedChild = children.find((c) => c.studentId === selectedChildId);
 
         // A. Today's Attendance
-        const attId = `${today}_${selectedChildId}`;
-        const attSnap = await getDocs(
-          query(collection(db, 'attendance'), where('studentId', '==', selectedChildId), where('date', '==', today))
-        );
-        if (!attSnap.empty) {
-          setTodayAttendance(attSnap.docs[0].data() as AttendanceRecord);
-        } else {
-          setTodayAttendance(null);
+        try {
+          const attSnap = await getDocs(
+            query(collection(db, 'attendance'), where('studentId', '==', selectedChildId), where('date', '==', today))
+          );
+          if (!attSnap.empty) {
+            setTodayAttendance(attSnap.docs[0].data() as AttendanceRecord);
+          } else {
+            setTodayAttendance(null);
+          }
+        } catch (e) {
+          console.warn('Attendance fetch notice:', e);
         }
 
         // B. Attendance History Summary
-        const allAttSnap = await getDocs(
-          query(collection(db, 'attendance'), where('studentId', '==', selectedChildId))
-        );
-        let present = 0, absent = 0, late = 0;
-        allAttSnap.forEach((d) => {
-          const a = d.data() as AttendanceRecord;
-          if (a.status === 'PRESENT') present++;
-          else if (a.status === 'ABSENT') absent++;
-          else if (a.status === 'LATE') late++;
-        });
-        const total = allAttSnap.size;
-        const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 100;
-        setAttendanceSummary({ total, present, absent, late, rate });
+        try {
+          const allAttSnap = await getDocs(
+            query(collection(db, 'attendance'), where('studentId', '==', selectedChildId))
+          );
+          let present = 0, absent = 0, late = 0;
+          allAttSnap.forEach((d) => {
+            const a = d.data() as AttendanceRecord;
+            if (a.status === 'PRESENT') present++;
+            else if (a.status === 'ABSENT') absent++;
+            else if (a.status === 'LATE') late++;
+          });
+          const total = allAttSnap.size;
+          const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 100;
+          setAttendanceSummary({ total, present, absent, late, rate });
+        } catch (e) {
+          console.warn('Attendance history fetch notice:', e);
+        }
 
         // C. Fees
         if (selectedChild) {
-          const fSnap = await getDocs(
-            query(
-              collection(db, 'feeStructures'),
-              where('classId', '==', selectedChild.classId),
-              where('academicSession', '==', settings.currentAcademicSession),
-              where('term', '==', settings.currentTerm)
-            )
-          );
-          let exp = 0;
-          fSnap.forEach((d) => {
-            exp += (d.data() as FeeStructure).amount || 0;
-          });
-          setFeeExpected(exp);
+          try {
+            const fSnap = await getDocs(
+              query(
+                collection(db, 'feeStructures'),
+                where('classId', '==', selectedChild.classId),
+                where('academicSession', '==', settings.currentAcademicSession),
+                where('term', '==', settings.currentTerm)
+              )
+            );
+            let exp = 0;
+            fSnap.forEach((d) => {
+              exp += (d.data() as FeeStructure).amount || 0;
+            });
+            setFeeExpected(exp);
 
-          const pSnap = await getDocs(
-            query(
-              collection(db, 'payments'),
-              where('studentId', '==', selectedChildId),
-              where('academicSession', '==', settings.currentAcademicSession),
-              where('term', '==', settings.currentTerm)
-            )
-          );
-          let paid = 0;
-          const pList: Payment[] = [];
-          pSnap.forEach((d) => {
-            const p = d.data() as Payment;
-            paid += p.amount || 0;
-            pList.push(p);
-          });
-          setFeePaid(paid);
-          setRecentPayments(pList);
+            const pSnap = await getDocs(
+              query(
+                collection(db, 'payments'),
+                where('studentId', '==', selectedChildId),
+                where('academicSession', '==', settings.currentAcademicSession),
+                where('term', '==', settings.currentTerm)
+              )
+            );
+            let paid = 0;
+            const pList: Payment[] = [];
+            pSnap.forEach((d) => {
+              const p = d.data() as Payment;
+              paid += p.amount || 0;
+              pList.push(p);
+            });
+            setFeePaid(paid);
+            setRecentPayments(pList);
+          } catch (e) {
+            console.warn('Fee fetch notice:', e);
+          }
         }
 
         // D. Published Results
-        const rSnap = await getDocs(
-          query(
-            collection(db, 'results'),
-            where('studentId', '==', selectedChildId)
-          )
-        );
-        const rList: Result[] = [];
-        rSnap.forEach((d) => {
-          const res = d.data() as Result;
-          if (res.status === 'PUBLISHED') rList.push(res);
-        });
-        setResults(rList);
+        try {
+          const rSnap = await getDocs(
+            query(
+              collection(db, 'results'),
+              where('studentId', '==', selectedChildId)
+            )
+          );
+          const rList: Result[] = [];
+          rSnap.forEach((d) => {
+            const res = d.data() as Result;
+            if (res.status === 'PUBLISHED') rList.push(res);
+          });
+          setResults(rList);
+        } catch (e) {
+          console.warn('Results fetch notice:', e);
+        }
 
         // E. Assignments for child's class
         if (selectedChild) {
-          const aSnap = await getDocs(
-            query(
-              collection(db, 'assignments'),
-              where('classId', '==', selectedChild.classId)
-            )
-          );
-          const aList: Assignment[] = [];
-          aSnap.forEach((d) => {
-            const assign = d.data() as Assignment;
-            if (assign.status === 'PUBLISHED') aList.push(assign);
-          });
-          setAssignments(aList);
+          try {
+            const aSnap = await getDocs(
+              query(
+                collection(db, 'assignments'),
+                where('classId', '==', selectedChild.classId)
+              )
+            );
+            const aList: Assignment[] = [];
+            aSnap.forEach((d) => {
+              const assign = d.data() as Assignment;
+              if (assign.status === 'PUBLISHED') aList.push(assign);
+            });
+            setAssignments(aList);
+          } catch (e) {
+            console.warn('Assignments fetch notice:', e);
+          }
         }
 
         // F. Announcements
-        const annSnap = await getDocs(
-          query(collection(db, 'announcements'), where('audience', 'in', ['ALL', 'PARENTS']), limit(4))
-        );
-        const annList: Announcement[] = [];
-        annSnap.forEach((d) => annList.push(d.data() as Announcement));
-        setAnnouncements(annList);
+        try {
+          const annSnap = await getDocs(
+            query(collection(db, 'announcements'), where('audience', 'in', ['ALL', 'PARENTS']), limit(4))
+          );
+          const annList: Announcement[] = [];
+          annSnap.forEach((d) => annList.push(d.data() as Announcement));
+          setAnnouncements(annList);
+        } catch (e) {
+          console.warn('Announcements fetch notice:', e);
+        }
 
       } catch (err) {
         console.error('Error fetching child details:', err);

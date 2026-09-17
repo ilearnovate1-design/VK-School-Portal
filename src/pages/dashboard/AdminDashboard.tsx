@@ -6,7 +6,7 @@ import { db } from '../../services/firebase';
 import { useSchool } from '../../contexts/SchoolContext';
 import { 
   Users, UserCheck, UserX, Clock, Wallet, Plus, CalendarCheck2, 
-  Receipt, Award, ClipboardList, Megaphone, ArrowRight 
+  Receipt, Award, ClipboardList, Megaphone, ArrowRight, Sparkles 
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -201,6 +201,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </Button>
         </div>
       </div>
+
+      {/* Demo Records Notification when zero students */}
+      {!loading && totalStudents === 0 && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-emerald-950">No Enrolled Pupils Found</h4>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                Quickly populate realistic test records (classes, curriculum, teachers, pupils, fees, exam scores, and homework).
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="primary"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white shrink-0"
+            onClick={() => onNavigate('settings')}
+            leftIcon={<Sparkles className="w-4 h-4" />}
+          >
+            Regenerate Test Records
+          </Button>
+        </div>
+      )}
 
       {/* 5 Metric Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">

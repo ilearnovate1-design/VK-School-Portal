@@ -82,6 +82,8 @@ export interface Subject {
   subjectId: string;
   name: string; // e.g. "Mathematics"
   code?: string; // e.g. "MTH"
+  category?: string; // e.g. "Core", "Sciences", "Humanities", "Commercial", "Languages", "Vocational"
+  description?: string;
   active: boolean;
   createdAt: any;
   updatedAt: any;

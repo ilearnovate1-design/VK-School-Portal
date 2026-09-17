@@ -22,7 +22,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       case 'students': return 'Students';
       case 'parents': return 'Parents';
       case 'teachers': return 'Teachers';
-      case 'classes': return 'Classes';
+      case 'classes': return 'Classes & Subjects';
       case 'attendance': return 'Daily Attendance';
       case 'fees': return 'Fees & Payments';
       case 'results': return 'Examination Results';

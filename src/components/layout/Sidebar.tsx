@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'students', label: 'Students', icon: Users },
         { id: 'parents', label: 'Parents', icon: UserCheck },
         { id: 'teachers', label: 'Teachers', icon: Briefcase },
-        { id: 'classes', label: 'Classes', icon: Layers },
+        { id: 'classes', label: 'Classes & Subjects', icon: Layers },
         { id: 'attendance', label: 'Attendance', icon: CalendarCheck2 },
         { id: 'fees', label: 'Fees & Payments', icon: Receipt },
         { id: 'results', label: 'Results & Reports', icon: Award },
